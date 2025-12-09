@@ -5,11 +5,7 @@ from elasticsearch.exceptions import ConnectionError, AuthenticationException, A
 
 def test_connection(es_url: str, username: str, password: str):
     try:
-        client = Elasticsearch(
-            [es_url],
-            http_auth=(username, password),
-            verify_certs=False
-        )
+        client = Elasticsearch([es_url], http_auth=(username, password), verify_certs=False)
 
         if client.cluster.health():
             print("Connection successful!")
