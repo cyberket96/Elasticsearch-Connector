@@ -1,9 +1,9 @@
-# Feature: Featch Health
+# Feature: Fetch Health
 
 from elasticsearch import Elasticsearch
 from elasticsearch.exceptions import ConnectionError, AuthenticationException, AuthorizationException
 
-def get_cluster_health(es_url: str, username: str, password: str):
+def fetch_health(es_url: str, username: str, password: str):
   
     try:
         client = Elasticsearch(
