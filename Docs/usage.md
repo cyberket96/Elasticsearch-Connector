@@ -1,188 +1,206 @@
-# CLI Guide — Elasticsearch Connector
+# CLI Usage Guide
 
-This guide explains how to use the **interactive CLI** for Elasticsearch Connector.  
-Start the tool once, then run commands in a continuous prompt until you exit.
+This document explains how to use the **Elasticsearch Connector CLI** and its supported commands.
 
----
+The CLI runs in **interactive mode** and accepts one command at a time.
 
-## 1. Start the CLI
+## 1️⃣ Starting the CLI
 
-From the project root:
+Ensure configuration is set (see Configuration Guide), then start the CLI:
 
 ```bash
-source .venv/bin/activate
-python3 main.py
+python main.py
 ```
 
-You should see a prompt like:
+On startup, you will see:
 
 ```text
->
+Elastic Connector (CLI)
+A lightweight, detection-centric toolkit for interacting with Elasticsearch.
+Type 'help' for commands. Type 'exit' to quit.
 ```
 
----
-
-## 2. Basic Commands
+## 2️⃣ Basic CLI Commands
 
 ### `help`
-Shows a short list of available commands.
+
+Displays all available commands.
 
 ```text
-> help
+help
 ```
 
 ### `exit`
-Closes the CLI cleanly.
+
+Exits the CLI.
 
 ```text
-> exit
+exit
 ```
 
----
-
-## 3. Cluster & Data Commands
+## 3️⃣ Connectivity & Health Commands
 
 ### `test_connection`
-Checks whether Elastic Connector can reach Elasticsearch using the credentials in `.env`.
+
+Validates connectivity and authentication with Elasticsearch.
 
 ```text
-> test_connection
+test_connection
 ```
+
+**Output:**
+
+* Success or failure message
 
 ### `fetch_health`
-Shows a short cluster health summary (status, nodes, shards).
+
+Fetches a high-level summary of cluster health.
 
 ```text
-> fetch_health
+fetch_health
 ```
 
+**Output includes:**
+
+* Cluster status
+* Number of nodes
+* Data nodes
+* Active and unassigned shards
+
+## 4️⃣ Discovery & Inspection Commands
+
 ### `fetch_indices`
-Lists indices available in the cluster.
+
+Lists all indices in the connected cluster.
 
 ```text
-> fetch_indices
+fetch_indices
 ```
 
 ### `fetch_schema`
-Shows mapping/schema details. You can provide an index name/pattern or leave blank for all.
+
+Displays index mappings (schemas).
 
 ```text
-> fetch_schema
-index_name (blank=all): logs-*
+fetch_schema
 ```
 
----
+You will be prompted:
 
-## 4. ES|QL Query Commands
+```text
+index_name (blank for all):
+```
+
+* Press **Enter** to fetch schemas for all indices
+* Provide an index name to fetch a specific schema
+
+## 5️⃣ Query Execution Commands
 
 ### `test_query`
-Validates whether an ES|QL query executes successfully.
-- This is intended for “does it run?” validation (syntax / fields / compatibility).
-- It does not need to print results.
+
+Validates that an ES|QL query executes successfully.
 
 ```text
-> test_query
-esql_query: FROM logs-* | LIMIT 1
+test_query
 ```
+
+Prompt:
+
+```text
+esql_query:
+```
+
+This command does **not** return query results — it only validates execution.
 
 ### `run_query`
-Executes an ES|QL query and prints results (table output).
+
+Executes an ES|QL query and prints results.
 
 ```text
-> run_query
-esql_query: FROM logs-* | WHERE event.dataset == "elastic_agent" | LIMIT 5
+run_query
 ```
 
----
+Prompt:
 
-## 5. Scenario / Telemetry Commands
+```text
+esql_query:
+```
 
-These are useful for **detection validation workflows** (ingest test logs → run query/detection → cleanup).
+## 6️⃣ Data Management Commands
 
 ### `ingest_doc`
-Ingests JSON docs into an index. Prompts:
-- `index_name`
-- `mapping_file` (path to mapping JSON)
-- `data_file` (path to docs JSON)
 
-Behavior:
-- If the index does not exist, it is created using the mapping file.
-- Each document gets an `@timestamp` within the last 15 minutes (to simplify time-based searches).
+Creates an index if missing and ingests documents from JSON files.
 
 ```text
-> ingest_doc
-index_name: scenario-process-001
-mapping_file: ./scenarios/process/mapping.json
-data_file: ./scenarios/process/logs.json
+ingest_doc
 ```
+
+Prompts:
+
+```text
+index_name:
+mapping_file (path):
+data_file (path):
+```
+
+* `mapping_file` → JSON file containing index mappings
+* `data_file` → JSON file containing documents to ingest
 
 ### `delete_doc`
-Deletes data either by deleting the entire index or by using delete-by-query.
 
-You will be asked for:
-- `index_name`
-- `mode (index|query)`
+Deletes data from Elasticsearch.
 
-**Delete entire index**
 ```text
-> delete_doc
-index_name: scenario-process-001
-mode (index|query): index
+delete_doc
 ```
 
-**Delete documents by query**
-Provide a Query DSL JSON (example deletes all docs):
+Prompts:
+
 ```text
-> delete_doc
-index_name: scenario-process-001
-mode (index|query): query
-query JSON (e.g., {"match_all":{}}): {"match_all":{}}
+index_name:
+mode (index|query):
+```
+
+#### Delete entire index
+
+```text
+mode: index
+```
+
+#### Delete by query
+
+```text
+mode: query
+query JSON (e.g., {"match_all":{}}):
+```
+
+The query must be valid JSON.
+
+---
+
+## 7️⃣ Error Handling Behavior
+
+* Unknown commands display an error message
+* Missing inputs are validated before execution
+* Invalid JSON input is rejected with a clear error
+* Elasticsearch errors are returned as user-readable messages
+
+Example:
+
+```text
+Error: Unknown command 'foo'. Type 'help' for a list of available commands.
 ```
 
 ---
 
-## 6. Examples
+## 8️⃣ Usage Notes & Limitations
 
-### Example A: Quick cluster check
-```text
-> test_connection
-> fetch_health
-> fetch_indices
-```
+* Commands are executed sequentially
+* One Elasticsearch cluster per session
+* No command history or auto-complete
+* Designed for **manual, interactive workflows**
 
-### Example B: Validate an ES|QL query (no results needed)
-```text
-> test_query
-esql_query: FROM logs-* | WHERE host.name IS NOT NULL | LIMIT 1
-```
-
-### Example C: Run an ES|QL query and view output
-```text
-> run_query
-esql_query: FROM logs-* | STATS count(*) BY event.dataset | SORT count(*) DESC | LIMIT 10
-```
-
-### Example D: Scenario workflow (ingest → run → cleanup)
-```text
-> ingest_doc
-index_name: scenario-auth-001
-mapping_file: ./scenarios/auth/mapping.json
-data_file: ./scenarios/auth/logs.json
-
-> run_query
-esql_query: FROM scenario-auth-001 | LIMIT 5
-
-> delete_doc
-index_name: scenario-auth-001
-mode (index|query): index
-```
+These constraints are intentional to keep the CLI lightweight.
 
 ---
-
-## Notes
-
-- Elasticsearch connection details are loaded from `.env` (`ES_URL`, `ES_USERNAME`, `ES_PASSWORD`).
-- If you see no results when running queries, verify:
-  - the index exists,
-  - fields referenced in the query exist in the mapping,
-  - your time range filters (if any) match the ingested timestamps.
