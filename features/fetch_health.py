@@ -1,35 +1,78 @@
-# Feature: Fetch Health
+from __future__ import annotations
 
 from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConnectionError, AuthenticationException, AuthorizationException
+from elasticsearch.exceptions import AuthenticationException, AuthorizationException, ConnectionError, TransportError
 
-def fetch_health(es_url: str, username: str, password: str):
-  
+
+def fetch_health(es_url: str, username: str, password: str) -> dict:
+    """
+    Core Feature: Fetch Cluster Health
+
+    Design rules (core module):
+    - No prints, no input()
+    - Always return a standardized response dictionary:
+        {
+          "success": bool,
+          "message": str,
+          "data": Any | None,
+          "error": dict | None
+        }
+
+    Data returned:
+    - Full response from Elasticsearch cluster health API in `data`
+    """
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False
+            verify_certs=False,  # lab/dev convenience; enable CA verification in production
         )
 
         health = client.cluster.health()
 
-        print("Cluster Health Information:")
-        print(f"Status: {health['status']}")
-        print(f"Number of Nodes: {health['number_of_nodes']}")
-        print(f"Number of Data Nodes: {health['number_of_data_nodes']}")
-        print(f"Active Shards: {health['active_shards']}")
-        print(f"Initializing Shards: {health['initializing_shards']}")
-        print(f"Unassigned Shards: {health['unassigned_shards']}")
+        return {
+            "success": True,
+            "message": "Cluster health retrieved successfully.",
+            "data": health,
+            "error": None,
+        }
 
-        return {"success": True, "message": "Cluster health retrieved successfully!", "health": health}
+    except AuthenticationException as e:
+        return {
+            "success": False,
+            "message": "Authentication failed.",
+            "data": None,
+            "error": {"type": "AuthenticationException", "details": str(e)},
+        }
 
-    except AuthenticationException:
-        return {"success": False, "message": "Authentication failed. Please check your username and password."}
-    except AuthorizationException:
-        return {"success": False, "message": "Authorization failed. You do not have the required permissions."}
-    except ConnectionError:
-        return {"success": False, "message": "Failed to connect to Elasticsearch. Please check the URL and network."}
+    except AuthorizationException as e:
+        return {
+            "success": False,
+            "message": "Authorization failed.",
+            "data": None,
+            "error": {"type": "AuthorizationException", "details": str(e)},
+        }
+
+    except ConnectionError as e:
+        return {
+            "success": False,
+            "message": "Connection error.",
+            "data": None,
+            "error": {"type": "ConnectionError", "details": str(e)},
+        }
+
+    except TransportError as e:
+        return {
+            "success": False,
+            "message": "Elasticsearch transport error while fetching cluster health.",
+            "data": None,
+            "error": {"type": "TransportError", "details": str(e)},
+        }
+
     except Exception as e:
-        return {"success": False, "message": f"An unexpected error occurred: {e}"}
-  
+        return {
+            "success": False,
+            "message": "Unexpected error while fetching cluster health.",
+            "data": None,
+            "error": {"type": e.__class__.__name__, "details": str(e)},
+        }
