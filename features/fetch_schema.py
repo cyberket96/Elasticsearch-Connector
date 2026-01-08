@@ -1,39 +1,79 @@
 # Feature : Fetch Schema
 
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConnectionError, AuthenticationException, AuthorizationException
+from __future__ import annotations
 
-def fetch_schema(es_url: str, username: str, password: str, index_name: str = None):
+from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import (
+    AuthenticationException,
+    AuthorizationException,
+    ConnectionError,
+    NotFoundError,
+    TransportError,
+)
+
+
+def fetch_schema(es_url: str, username: str, password: str, index_name: str | None = None) -> dict:
 
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False
+            verify_certs=False,
         )
 
-        if index_name:
-            schema = client.indices.get_mapping(index=index_name)
-        else:
-            schema = client.indices.get_mapping()
+        schema = client.indices.get_mapping(index=index_name) if index_name else client.indices.get_mapping()
 
-        print("Index Schema:")
-        for index, mappings in schema.items():
-            print(f"\nIndex: {index}")
-            print(f"{'Field Name':<30} {'Data Type':<15}")
-            print("-" * 50)
-            properties = mappings["mappings"].get("properties", {})
-            for field, details in properties.items():
-                data_type = details.get("type", "object")
-                print(f"{field:<30} {data_type:<15}")
+        return {
+            "success": True,
+            "message": "Schema retrieved successfully.",
+            "data": schema,
+            "error": None,
+        }
 
-        return {"success": True, "message": "Schema retrieved successfully.", "schema": schema}
+    except NotFoundError as e:
+        return {
+            "success": False,
+            "message": "Index not found while fetching schema.",
+            "data": {"index_name": index_name},
+            "error": {"type": "NotFoundError", "details": str(e)},
+        }
 
-    except AuthenticationException:
-        return {"success": False, "message": "Authentication failed. Please check your username and password."}
-    except AuthorizationException:
-        return {"success": False, "message": "Authorization failed. You do not have the required permissions."}
-    except ConnectionError:
-        return {"success": False, "message": "Failed to connect to Elasticsearch. Please check the URL and network."}
+    except AuthenticationException as e:
+        return {
+            "success": False,
+            "message": "Authentication failed.",
+            "data": None,
+            "error": {"type": "AuthenticationException", "details": str(e)},
+        }
+
+    except AuthorizationException as e:
+        return {
+            "success": False,
+            "message": "Authorization failed.",
+            "data": None,
+            "error": {"type": "AuthorizationException", "details": str(e)},
+        }
+
+    except ConnectionError as e:
+        return {
+            "success": False,
+            "message": "Connection error.",
+            "data": None,
+            "error": {"type": "ConnectionError", "details": str(e)},
+        }
+
+    except TransportError as e:
+        return {
+            "success": False,
+            "message": "Elasticsearch transport error while fetching schema.",
+            "data": None,
+            "error": {"type": "TransportError", "details": str(e)},
+        }
+
     except Exception as e:
-        return {"success": False, "message": f"An unexpected error occurred: {e}"}
+        return {
+            "success": False,
+            "message": "Unexpected error while fetching schema.",
+            "data": None,
+            "error": {"type": e.__class__.__name__, "details": str(e)},
+        }

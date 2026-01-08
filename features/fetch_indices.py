@@ -1,35 +1,65 @@
 # Feature : Fetch Indices
 
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConnectionError, AuthenticationException, AuthorizationException
+from __future__ import annotations
 
-def fetch_indices(es_url: str, username: str, password: str):
+from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import AuthenticationException, AuthorizationException, ConnectionError, TransportError
+
+
+def fetch_indices(es_url: str, username: str, password: str) -> dict:
 
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False 
+            verify_certs=False,
         )
 
-        indices = client.cat.indices(format="json")
+        indices = client.cat.indices(format="json") or []
 
-        if not indices:
-            print("No indices found in the Elasticsearch cluster.")
-            return {"success": True, "message": "No indices found in the Elasticsearch cluster.", "indices": []}
+        return {
+            "success": True,
+            "message": "Indices retrieved successfully." if indices else "No indices found.",
+            "data": indices,
+            "error": None,
+        }
 
-        print(f"{'Index Name':<30} {'Health':<10} {'Status':<10} {'Docs Count':<15} {'Store Size':<15}")
-        print("-" * 80)
-        for index in indices:
-            print(f"{index['index']:<30} {index['health']:<10} {index['status']:<10} {index['docs.count']:<15} {index['store.size']:<15}")
+    except AuthenticationException as e:
+        return {
+            "success": False,
+            "message": "Authentication failed.",
+            "data": None,
+            "error": {"type": "AuthenticationException", "details": str(e)},
+        }
 
-        return {"success": True, "message": "Indices retrieved successfully.", "indices": indices}
+    except AuthorizationException as e:
+        return {
+            "success": False,
+            "message": "Authorization failed.",
+            "data": None,
+            "error": {"type": "AuthorizationException", "details": str(e)},
+        }
 
-    except AuthenticationException:
-        return {"success": False, "message": "Authentication failed. Please check your username and password."}
-    except AuthorizationException:
-        return {"success": False, "message": "Authorization failed. You do not have the required permissions."}
-    except ConnectionError:
-        return {"success": False, "message": "Failed to connect to Elasticsearch. Please check the URL and network."}
+    except ConnectionError as e:
+        return {
+            "success": False,
+            "message": "Connection error.",
+            "data": None,
+            "error": {"type": "ConnectionError", "details": str(e)},
+        }
+
+    except TransportError as e:
+        return {
+            "success": False,
+            "message": "Elasticsearch transport error while fetching indices.",
+            "data": None,
+            "error": {"type": "TransportError", "details": str(e)},
+        }
+
     except Exception as e:
-        return {"success": False, "message": f"An unexpected error occurred: {e}"}
+        return {
+            "success": False,
+            "message": "Unexpected error while fetching indices.",
+            "data": None,
+            "error": {"type": e.__class__.__name__, "details": str(e)},
+        }

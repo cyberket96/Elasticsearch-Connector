@@ -1,59 +1,174 @@
-# Feature : Ingest Documents
+# Feature : Ingest Doc
+
+from __future__ import annotations
 
 import json
 import random
-from datetime import datetime, timedelta
-from elasticsearch import Elasticsearch
-from elasticsearch.helpers import bulk
-from elasticsearch.exceptions import ConnectionError, AuthenticationException, AuthorizationException
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
-def ingest_doc(es_url: str, username: str, password: str, index_name: str, mapping_file: str, data_file: str):
+from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import (
+    AuthenticationException,
+    AuthorizationException,
+    ConnectionError,
+    RequestError,
+    TransportError,
+)
+from elasticsearch.helpers import bulk
+
+
+def ingest_doc(
+    es_url: str,
+    username: str,
+    password: str,
+    index_name: str,
+    mapping_file: str,
+    data_file: str,
+) -> dict:
 
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False
+            verify_certs=False,
         )
 
-        if client.indices.exists(index=index_name):
-            print(f"Index '{index_name}' already exists. Skipping index creation.")
-        else:
-            with open(mapping_file, "r") as file:
-                mapping = json.load(file)
+        mapping_path = Path(mapping_file)
+        data_path = Path(data_file)
+
+        if not mapping_path.is_file():
+            return {
+                "success": False,
+                "message": "Mapping file not found.",
+                "data": {"mapping_file": mapping_file},
+                "error": {"type": "FileNotFound", "details": f"Missing mapping file: {mapping_file}"},
+            }
+
+        if not data_path.is_file():
+            return {
+                "success": False,
+                "message": "Data file not found.",
+                "data": {"data_file": data_file},
+                "error": {"type": "FileNotFound", "details": f"Missing data file: {data_file}"},
+            }
+
+        created_index = False
+        if not client.indices.exists(index=index_name):
+            with mapping_path.open("r", encoding="utf-8") as f:
+                mapping = json.load(f)
 
             client.indices.create(index=index_name, body=mapping)
-            print(f"Index '{index_name}' created successfully.")
+            created_index = True
 
-        with open(data_file, "r") as file:
-            documents = json.load(file)
+        with data_path.open("r", encoding="utf-8") as f:
+            documents = json.load(f)
 
-        now = datetime.utcnow()
-        fifteen_minutes_ago = now - timedelta(minutes=15)
-        for doc in documents:
-            random_timestamp = fifteen_minutes_ago + timedelta(
-                seconds=random.randint(0, 15 * 60)
-            )
-            doc["@timestamp"] = random_timestamp.isoformat()
+        if isinstance(documents, dict):
+            documents = [documents]
 
-        actions = [
-            {
-                "_index": index_name,
-                "_source": doc
+        if not isinstance(documents, list):
+            return {
+                "success": False,
+                "message": "Invalid data file format. Expected a JSON array (list) or a single JSON object.",
+                "data": {"data_file": data_file},
+                "error": {
+                    "type": "InvalidInput",
+                    "details": "Data JSON must be a list of documents or a single document object.",
+                },
             }
-            for doc in documents
-        ]
 
-        success, _ = bulk(client, actions)
-        print(f"{success} documents ingested successfully into index '{index_name}'.")
+        for doc in documents:
+            if not isinstance(doc, dict):
+                return {
+                    "success": False,
+                    "message": "Invalid document format in data file. Each item must be a JSON object.",
+                    "data": {"data_file": data_file},
+                    "error": {"type": "InvalidInput", "details": "Each document must be a JSON object (dict)."},
+                }
 
-        return {"success": True, "message": f"{success} documents ingested successfully into index '{index_name}'."}
+        now = datetime.now(timezone.utc)
+        start = now - timedelta(minutes=15)
 
-    except AuthenticationException:
-        return {"success": False, "message": "Authentication failed. Please check your username and password."}
-    except AuthorizationException:
-        return {"success": False, "message": "Authorization failed. You do not have the required permissions."}
-    except ConnectionError:
-        return {"success": False, "message": "Failed to connect to Elasticsearch. Please check the URL and network."}
+        for doc in documents:
+            random_ts = start + timedelta(seconds=random.randint(0, 15 * 60))
+            doc["@timestamp"] = random_ts.isoformat()
+
+        actions = ({"_index": index_name, "_source": doc} for doc in documents)
+        ingested_count, errors = bulk(client, actions, raise_on_error=False)
+
+        if errors:
+            return {
+                "success": False,
+                "message": "Bulk ingest completed with errors.",
+                "data": {
+                    "index": index_name,
+                    "created_index": created_index,
+                    "requested_docs": len(documents),
+                    "ingested_docs": ingested_count,
+                    "bulk_errors": errors,
+                },
+                "error": {"type": "BulkIngestError", "details": "One or more bulk items failed."},
+            }
+
+        return {
+            "success": True,
+            "message": "Documents ingested successfully.",
+            "data": {
+                "index": index_name,
+                "created_index": created_index,
+                "requested_docs": len(documents),
+                "ingested_docs": ingested_count,
+                "timestamp_window_minutes": 15,
+                "timestamp_field": "@timestamp",
+            },
+            "error": None,
+        }
+
+    except AuthenticationException as e:
+        return {
+            "success": False,
+            "message": "Authentication failed.",
+            "data": None,
+            "error": {"type": "AuthenticationException", "details": str(e)},
+        }
+
+    except AuthorizationException as e:
+        return {
+            "success": False,
+            "message": "Authorization failed.",
+            "data": None,
+            "error": {"type": "AuthorizationException", "details": str(e)},
+        }
+
+    except ConnectionError as e:
+        return {
+            "success": False,
+            "message": "Connection error.",
+            "data": None,
+            "error": {"type": "ConnectionError", "details": str(e)},
+        }
+
+    except RequestError as e:
+        return {
+            "success": False,
+            "message": "Elasticsearch request error during ingest.",
+            "data": None,
+            "error": {"type": "RequestError", "details": str(e)},
+        }
+
+    except TransportError as e:
+        return {
+            "success": False,
+            "message": "Elasticsearch transport error during ingest.",
+            "data": None,
+            "error": {"type": "TransportError", "details": str(e)},
+        }
+
     except Exception as e:
-        return {"success": False, "message": f"An unexpected error occurred: {e}"}
+        return {
+            "success": False,
+            "message": "Unexpected error during ingest.",
+            "data": None,
+            "error": {"type": e.__class__.__name__, "details": str(e)},
+        }

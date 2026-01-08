@@ -1,35 +1,95 @@
 # Feature : Run Query
 
-from elasticsearch import Elasticsearch
-from elasticsearch.exceptions import ConnectionError, AuthenticationException, AuthorizationException, TransportError
-from tabulate import tabulate
+from __future__ import annotations
 
-def run_query(es_url: str, username: str, password: str, esql_query: str):
+from elasticsearch import Elasticsearch
+from elasticsearch.exceptions import (
+    AuthenticationException,
+    AuthorizationException,
+    ConnectionError,
+    TransportError,
+)
+
+
+def run_query(es_url: str, username: str, password: str, esql_query: str) -> dict:
 
     try:
+        if not esql_query or not esql_query.strip():
+            return {
+                "success": False,
+                "message": "ES|QL query is required.",
+                "data": None,
+                "error": {"type": "InvalidInput", "details": "esql_query was empty."},
+            }
+
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False
+            verify_certs=False,
         )
 
         response = client.esql.query(query=esql_query)
 
-        columns = [col["name"] for col in response["columns"]]
-        values = response["values"]
+        columns = response.get("columns", [])
+        values = response.get("values", [])
 
-        print("Query executed successfully!")
-        print(tabulate(values, headers=columns, tablefmt="grid"))
+        return {
+            "success": True,
+            "message": "Query executed successfully.",
+            "data": {
+                "columns": columns,
+                "values": values,
+                "took": response.get("took"),
+                "is_partial": response.get("is_partial"),
+            },
+            "error": None,
+        }
 
-        return {"success": True, "message": "Query executed successfully!"}
+    except AuthenticationException as e:
+        return {
+            "success": False,
+            "message": "Authentication failed.",
+            "data": None,
+            "error": {"type": "AuthenticationException", "details": str(e)},
+        }
 
-    except AuthenticationException:
-        return {"success": False, "message": "Authentication failed. Please check your username and password."}
-    except AuthorizationException:
-        return {"success": False, "message": "Authorization failed. You do not have the required permissions."}
-    except ConnectionError:
-        return {"success": False, "message": "Failed to connect to Elasticsearch. Please check the URL and network."}
+    except AuthorizationException as e:
+        return {
+            "success": False,
+            "message": "Authorization failed.",
+            "data": None,
+            "error": {"type": "AuthorizationException", "details": str(e)},
+        }
+
+    except ConnectionError as e:
+        return {
+            "success": False,
+            "message": "Connection error.",
+            "data": None,
+            "error": {"type": "ConnectionError", "details": str(e)},
+        }
+
     except TransportError as e:
-        return {"success": False, "message": f"Query execution failed: {e.info.get('error', {}).get('reason', 'Unknown error')}"}
+        reason = None
+        try:
+            reason = (e.info or {}).get("error", {}).get("reason")
+        except Exception:
+            reason = None
+
+        return {
+            "success": False,
+            "message": "ES|QL query execution failed.",
+            "data": None,
+            "error": {
+                "type": "TransportError",
+                "details": reason or str(e),
+            },
+        }
+
     except Exception as e:
-        return {"success": False, "message": f"An unexpected error occurred: {e}"}
+        return {
+            "success": False,
+            "message": "Unexpected error while executing ES|QL query.",
+            "data": None,
+            "error": {"type": e.__class__.__name__, "details": str(e)},
+        }
