@@ -64,13 +64,13 @@ flowchart LR
 
 For detailed usage and internal flow, refer to the following pages:
 
-* **[Connector Working Diagram](Docs/working-diagram.md)**
+* **[Connector Working Diagram](docs/working-diagram.md)**
   In-depth execution flow of the CLI and feature modules.
 
-* **[CLI Usage Guide](Docs/usage.md)**
+* **[CLI Usage Guide](docs/usage.md)**
   Command reference, examples, and expected behavior.
 
-* **[Configuration Guide](Docs/configuration.md)**
+* **[Configuration Guide](docs/configuration.md)**
   Environment variables, authentication, and configuration precedence.
 
 ---
