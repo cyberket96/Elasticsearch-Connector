@@ -1,3 +1,5 @@
+# Feature : Ingest Doc
+
 from __future__ import annotations
 
 import json
@@ -24,37 +26,12 @@ def ingest_doc(
     mapping_file: str,
     data_file: str,
 ) -> dict:
-    """
-    Core Feature: Ingest Documents
 
-    Behavior:
-    - If index does not exist: create it using mapping JSON.
-    - Load documents from JSON file.
-      * Accepts BOTH formats:
-        1) A JSON array (list of documents)
-        2) A single JSON object (one document) -> auto-wrapped into a list
-    - Inject '@timestamp' within the last 15 minutes (UTC) into each document.
-      * If a document already has '@timestamp', it will be overwritten to ensure the
-        "last 15 minutes" search window works reliably for validation workflows.
-    - Bulk ingest into Elasticsearch.
-
-    Standard response:
-        {
-          "success": bool,
-          "message": str,
-          "data": Any | None,
-          "error": dict | None
-        }
-
-    Notes:
-    - This core function does not print; CLI/API should render results.
-    - This v1 expects server-local file paths for mapping_file/data_file.
-    """
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False,  # lab/dev convenience; enable CA verification in production
+            verify_certs=False,
         )
 
         mapping_path = Path(mapping_file)
@@ -76,7 +53,6 @@ def ingest_doc(
                 "error": {"type": "FileNotFound", "details": f"Missing data file: {data_file}"},
             }
 
-        # Create index only if missing
         created_index = False
         if not client.indices.exists(index=index_name):
             with mapping_path.open("r", encoding="utf-8") as f:
@@ -85,11 +61,9 @@ def ingest_doc(
             client.indices.create(index=index_name, body=mapping)
             created_index = True
 
-        # Load documents (supports list or single dict)
         with data_path.open("r", encoding="utf-8") as f:
             documents = json.load(f)
 
-        # Accept single JSON object as one document
         if isinstance(documents, dict):
             documents = [documents]
 
@@ -104,7 +78,6 @@ def ingest_doc(
                 },
             }
 
-        # Validate each doc is an object/dict
         for doc in documents:
             if not isinstance(doc, dict):
                 return {
@@ -114,7 +87,6 @@ def ingest_doc(
                     "error": {"type": "InvalidInput", "details": "Each document must be a JSON object (dict)."},
                 }
 
-        # Inject @timestamp within last 15 minutes (UTC)
         now = datetime.now(timezone.utc)
         start = now - timedelta(minutes=15)
 

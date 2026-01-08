@@ -1,3 +1,5 @@
+# Feature : Fetch Health
+
 from __future__ import annotations
 
 from elasticsearch import Elasticsearch
@@ -5,27 +7,12 @@ from elasticsearch.exceptions import AuthenticationException, AuthorizationExcep
 
 
 def fetch_health(es_url: str, username: str, password: str) -> dict:
-    """
-    Core Feature: Fetch Cluster Health
 
-    Design rules (core module):
-    - No prints, no input()
-    - Always return a standardized response dictionary:
-        {
-          "success": bool,
-          "message": str,
-          "data": Any | None,
-          "error": dict | None
-        }
-
-    Data returned:
-    - Full response from Elasticsearch cluster health API in `data`
-    """
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False,  # lab/dev convenience; enable CA verification in production
+            verify_certs=False,
         )
 
         health = client.cluster.health()

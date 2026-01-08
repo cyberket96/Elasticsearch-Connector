@@ -1,3 +1,5 @@
+# Feature : Test Query
+
 from __future__ import annotations
 
 from elasticsearch import Elasticsearch
@@ -10,30 +12,7 @@ from elasticsearch.exceptions import (
 
 
 def test_query(es_url: str, username: str, password: str, esql_query: str) -> dict:
-    """
-    Core Feature: Test ES|QL Query
 
-    Purpose:
-    - Validate that an ES|QL query can be executed successfully.
-    - Does NOT format/print results (CLI/UI responsibility).
-
-    Standard response:
-        {
-          "success": bool,
-          "message": str,
-          "data": Any | None,
-          "error": dict | None
-        }
-
-    Data returned (on success):
-    - A small execution summary (not full result set):
-        {
-          "took": int | None,
-          "is_partial": bool | None,
-          "columns_count": int,
-          "rows_count": int
-        }
-    """
     try:
         if not esql_query or not esql_query.strip():
             return {
@@ -46,7 +25,7 @@ def test_query(es_url: str, username: str, password: str, esql_query: str) -> di
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False,  # lab/dev convenience; enable CA verification in production
+            verify_certs=False,
         )
 
         resp = client.esql.query(query=esql_query)

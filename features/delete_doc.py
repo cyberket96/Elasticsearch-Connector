@@ -1,3 +1,5 @@
+# Feature : Delete Doc
+
 from __future__ import annotations
 
 from elasticsearch import Elasticsearch
@@ -11,30 +13,16 @@ from elasticsearch.exceptions import (
 
 
 def delete_doc(es_url: str, username: str, password: str, index_name: str, query: dict | None = None) -> dict:
-    """
-    Core Feature: Delete Documents / Index
 
-    Behavior:
-    - If `query` is provided: perform delete-by-query on `index_name`
-    - If `query` is None: delete the entire index
-
-    Standard response:
-        {
-          "success": bool,
-          "message": str,
-          "data": Any | None,
-          "error": dict | None
-        }
-    """
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False,  # lab/dev convenience; enable CA verification in production
+            verify_certs=False,
         )
 
         if query is not None:
-            # Delete by query
+
             resp = client.delete_by_query(index=index_name, body={"query": query})
 
             deleted = resp.get("deleted", 0)
@@ -42,8 +30,6 @@ def delete_doc(es_url: str, username: str, password: str, index_name: str, query
             timed_out = resp.get("timed_out", False)
             failures = resp.get("failures", [])
 
-            # Even if failures exist, Elasticsearch may delete some docs.
-            # We'll treat failures as an error signal and return success=False only if nothing was deleted AND failures exist.
             if failures and deleted == 0:
                 return {
                     "success": False,
@@ -73,7 +59,6 @@ def delete_doc(es_url: str, username: str, password: str, index_name: str, query
                 "error": None,
             }
 
-        # Delete entire index
         resp = client.indices.delete(index=index_name)
 
         return {
@@ -88,7 +73,7 @@ def delete_doc(es_url: str, username: str, password: str, index_name: str, query
         }
 
     except NotFoundError as e:
-        # Index not found is common during cleanup; caller can decide whether to treat as fatal.
+
         return {
             "success": False,
             "message": f"Index '{index_name}' not found.",
@@ -121,7 +106,6 @@ def delete_doc(es_url: str, username: str, password: str, index_name: str, query
         }
 
     except TransportError as e:
-        # Covers common ES errors (400s, 500s) with structured info where possible.
         return {
             "success": False,
             "message": "Elasticsearch transport error during delete operation.",

@@ -1,3 +1,5 @@
+# Feature : Run Query
+
 from __future__ import annotations
 
 from elasticsearch import Elasticsearch
@@ -10,27 +12,7 @@ from elasticsearch.exceptions import (
 
 
 def run_query(es_url: str, username: str, password: str, esql_query: str) -> dict:
-    """
-    Core Feature: Run ES|QL Query
 
-    Executes an ES|QL query and returns results (no printing).
-
-    Standard response:
-        {
-          "success": bool,
-          "message": str,
-          "data": Any | None,
-          "error": dict | None
-        }
-
-    Data returned (on success):
-        {
-          "columns": [{"name": "...", "type": "..."} ...],
-          "values":  [[...], [...]],
-          "took": int | None,
-          "is_partial": bool | None
-        }
-    """
     try:
         if not esql_query or not esql_query.strip():
             return {
@@ -43,12 +25,11 @@ def run_query(es_url: str, username: str, password: str, esql_query: str) -> dic
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False,  # lab/dev convenience; enable CA verification in production
+            verify_certs=False,
         )
 
         response = client.esql.query(query=esql_query)
 
-        # ES|QL responses typically contain: columns, values, took, is_partial
         columns = response.get("columns", [])
         values = response.get("values", [])
 
@@ -89,7 +70,6 @@ def run_query(es_url: str, username: str, password: str, esql_query: str) -> dic
         }
 
     except TransportError as e:
-        # Try to extract ES error details when present
         reason = None
         try:
             reason = (e.info or {}).get("error", {}).get("reason")

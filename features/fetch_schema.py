@@ -1,3 +1,5 @@
+# Feature : Fetch Schema
+
 from __future__ import annotations
 
 from elasticsearch import Elasticsearch
@@ -11,28 +13,12 @@ from elasticsearch.exceptions import (
 
 
 def fetch_schema(es_url: str, username: str, password: str, index_name: str | None = None) -> dict:
-    """
-    Core Feature: Fetch Schema (Index Mappings)
 
-    Fetches mappings using the Elasticsearch get mapping API.
-
-    Standard response:
-        {
-          "success": bool,
-          "message": str,
-          "data": Any | None,
-          "error": dict | None
-        }
-
-    Data returned:
-    - Full mapping response as returned by `client.indices.get_mapping(...)`
-      (dict keyed by index name)
-    """
     try:
         client = Elasticsearch(
             [es_url],
             http_auth=(username, password),
-            verify_certs=False,  # lab/dev convenience; enable CA verification in production
+            verify_certs=False,
         )
 
         schema = client.indices.get_mapping(index=index_name) if index_name else client.indices.get_mapping()
@@ -45,7 +31,6 @@ def fetch_schema(es_url: str, username: str, password: str, index_name: str | No
         }
 
     except NotFoundError as e:
-        # Typically happens if user passes an index/pattern that doesn't exist.
         return {
             "success": False,
             "message": "Index not found while fetching schema.",
