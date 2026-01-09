@@ -41,25 +41,6 @@ Rather than abstracting Elasticsearch behind heavy services, this connector expo
 
 ![CLI Usage Guide](./docs/images/overview-diagram.png)
 
-```mermaid
-flowchart LR
-    classDef userStyle fill:#E3F2FD,stroke:#1E88E5;
-    classDef cliStyle fill:#E8F5E9,stroke:#43A047;
-    classDef coreStyle fill:#FFFDE7,stroke:#F9A825;
-    classDef esStyle fill:#FCE4EC,stroke:#D81B60;
-
-    User([User / Engineer]) --> CLI[[CLI Interface]]
-    CLI --> Core[Elasticsearch Connector Core]
-    Core --> Elasticsearch[(Elasticsearch Cluster)]
-    Elasticsearch --> Core
-    Core --> CLI
-
-    class User userStyle
-    class CLI cliStyle
-    class Core coreStyle
-    class Elasticsearch esStyle
-```
-
 ---
 
 ## Documentation
