@@ -39,6 +39,8 @@ Rather than abstracting Elasticsearch behind heavy services, this connector expo
 
 ## High-Level Architecture Overview
 
+![CLI Usage Guide](./docs/images/overview-diagram.png)
+
 ```mermaid
 flowchart LR
     classDef userStyle fill:#E3F2FD,stroke:#1E88E5;
