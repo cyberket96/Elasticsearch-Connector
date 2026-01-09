@@ -1,5 +1,5 @@
 # Overview Diagram
 
-![overview Diagram](../docs/Images/overview-diagram.png)
+![overview Diagram](../docs/images/overview-diagram.png)
 
 ---
