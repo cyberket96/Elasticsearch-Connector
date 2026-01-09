@@ -5,7 +5,7 @@ from __future__ import annotations
 
 def print_banner() -> None:
     print("=" * 64)
-    print("Elastic Connector")
+    print("Elasticsearch Connector")
     print("=" * 64)
     print("Purpose:")
     print("  - Detection-centric utilities for interacting with Elasticsearch.")
