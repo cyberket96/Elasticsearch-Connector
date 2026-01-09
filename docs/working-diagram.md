@@ -1,5 +1,5 @@
 # Working Diagram
 
-![Working Diagram](../docs/Images/working-diagram.png)
+![Working Diagram](../docs/images/working-diagram.png)
 
 ---
