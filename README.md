@@ -57,3 +57,11 @@ For detailed usage and internal flow, refer to the following pages:
   Environment variables, authentication, and configuration precedence.
 
 ---
+
+## License
+
+This project is licensed under the MIT License.  
+See the [LICENSE](LICENSE) file for details.
+
+---
+
